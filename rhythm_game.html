@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover, maximum-scale=1.0" />
+<title>リズムバトル × アクション棒人間</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#121b26; --lane:#1a2430; --hit:#2a3647; --accent:#68e1ff; --ok:#4ade80; --warn:#fbbf24; --bad:#ef4444; --white:#eaf6ff;
+  --note-size: 32px;
+}
+html,body{
+  margin:0; height:100%;
+  background:radial-gradient(1200px 600px at 10% 0%, #0f1721 0%, #090d12 60%, #070a0f 100%);
+  color:var(--white);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, "Noto Sans JP", sans-serif;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+*{ box-sizing:border-box; user-select:none; }
+button{
+  background:linear-gradient(180deg,#1f2b3a,#172232);
+  border:1px solid #223043; border-radius:14px; color:var(--white);
+  padding:12px 16px; font-weight:700; letter-spacing:.02em; cursor:pointer;
+  transition:transform .06s ease, filter .12s ease, background .2s; box-shadow:0 2px 4px rgba(0,0,0,.15);
+}
+button:hover{ filter:brightness(1.2); }
+button:active{ transform:scale(0.95); background:linear-gradient(180deg,#2a3647,#1f2b3a); }
+a{ color:var(--accent); text-decoration:none; } a:hover{text-decoration:underline;}
+.center{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.wrap{ min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:20px; }
+.scene{ display:none; position:absolute; top:0; left:0; width:100%; height:100%; }
+.scene.active{ display:block; }
+.card{
+  background:var(--panel);
+  padding:clamp(20px, 5vw, 40px);
+  border-radius:24px; box-shadow:0 10px 30px rgba(0,0,0,.2), 0 0 10px rgba(0,0,0,.1);
+  max-width:700px; width:100%; border:1px solid #1c2a3a;
+  opacity:0; transform:translateY(20px); animation:fadeIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes fadeIn{ to{ opacity:1; transform:translateY(0);} }
+.title{ font-size:clamp(28px, 6vw, 48px); font-weight:900; letter-spacing:.04em; line-height:1.2; margin:0; text-shadow:0 0 10px rgba(104,225,255,.3);}
+.subtitle{ font-size:clamp(14px, 2.5vw, 18px); font-weight:500; opacity:.75; margin-top:8px; line-height:1.5; }
+.pill{ background:#1f2b3a; border-radius:100px; padding:6px 14px; font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; display:inline-block; opacity:.8; }
+.pill input{ display:none; }
+.pill:has(input:checked){ background:var(--accent); color:var(--panel); opacity:1; box-shadow:0 0 10px rgba(104,225,255,.5); }
+.row{ display:flex; align-items:center; gap:10px; }
+
+/* Play scene */
+#gameCanvas{ width:100%; height:calc(100vh - 120px); background:transparent; border-bottom:1px solid rgba(255,255,255,.1); }
+#hud{ position:absolute; top:20px; left:20px; right:20px; display:flex; justify-content:space-between; align-items:center; pointer-events:none; }
+#hud .score{ font-size:32px; font-weight:800; }
+#hud .combo{ font-size:24px; font-weight:700; opacity:0.8; transition:transform .1s ease; }
+#hud .combo.hit{ transform:scale(1.2); color:var(--ok); }
+
+.judge-text{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:clamp(24px, 8vw, 64px); font-weight:900; letter-spacing:1px; opacity:0;
+  animation:judgePop 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes judgePop{
+  from{ opacity:0; transform:translate(-50%,-30%) scale(0.8);}
+  20%{ opacity:1; transform:translate(-50%,-50%) scale(1.1);}
+  to{ opacity:0; transform:translate(-50%,-70%) scale(1);}
+}
+.judge-perfect{color:var(--accent);} .judge-great{color:var(--ok);} .judge-good{color:var(--warn);} .judge-miss{color:var(--bad);}
+
+#lanes{
+  position:absolute; bottom:100px; left:0; width:100%; height:80px;
+  display:flex; justify-content:center; gap:20px; padding:0 20px; z-index:10;
+}
+.lane{
+  position:relative; width:clamp(80px, 20vw, 150px);
+  border-left:1px solid var(--lane); border-right:1px solid var(--lane);
+  background:rgba(255,255,255,.05); box-shadow:0 0 10px rgba(0,0,0,.15); border-radius:12px;
+}
+.note{ position:absolute; left:50%; transform:translateX(-50%); width:var(--note-size); height:var(--note-size); background:var(--accent); border-radius:8px; box-shadow:0 0 8px rgba(104,225,255,.5); animation:pulse 1s infinite; }
+@keyframes pulse{ 0%,100%{transform:translateX(-50%) scale(1);} 50%{transform:translateX(-50%) scale(1.1);} }
+.note-0{background:#68e1ff;} .note-1{background:#4ade80;} .note-2{background:#fbbf24;}
+.hitline{ position:absolute; bottom:0; left:0; width:100%; height:10px; background:rgba(255,255,255,.2); border-radius:4px; z-index:20; }
+.spark{ position:absolute; bottom:0; left:0; width:100%; height:100%; background:radial-gradient(circle, var(--accent) 0%, transparent 60%); opacity:0; transition:opacity .2s ease; pointer-events:none; }
+.spark.show{ opacity:0.8; }
+
+#controls{ position:absolute; bottom:20px; left:0; width:100%; display:flex; justify-content:center; gap:20px; padding:0 20px; z-index:10; }
+.ctl{ display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px 0; font-size:16px; font-weight:800; width:clamp(80px, 20vw, 150px); min-height:60px; }
+.ctl:active{ background:linear-gradient(180deg,#2a3647,#1f2b3a); transform: scale(0.95); }
+
+/* Result / Ending */
+.big{ font-size:clamp(28px,6vw,52px); font-weight:900; letter-spacing:.04em }
+.result-grid{ display:grid; grid-template-columns:repeat(2, minmax(220px,1fr)); gap:14px; max-width:720px; margin:20px auto }
+.result-item{ background:#111a26; border:1px solid #1c2a3a; border-radius:12px; padding:14px; text-align:center }
+.rank{ font-size:42px; font-weight:900; color:#68e1ff; text-shadow:0 0 10px rgba(104,225,255,.5); }
+.ending{ max-width:860px; margin:0 auto; line-height:1.9; opacity:.95 }
+.kbd{ display:inline-block; padding:2px 6px; border:1px solid #2a3647; border-radius:4px; background:#1f2b3a; font-family:monospace; font-size:12px; margin-right:4px; }
+.help-text{ font-size:14px; line-height:1.6; opacity:.8; margin-top:20px; }
+</style>
+</head>
+<body>
+
+<!-- Start -->
+<div id="scene-start" class="scene active">
+  <div class="wrap">
+    <div class="card center">
+      <div class="pill">Rhythm × Action</div>
+      <h1 class="title">リズムバトル：棒人間でパンチ・キック・ジャンプ</h1>
+      <p class="subtitle">JSON譜面・ローカルBGM対応版</p>
+
+      <div class="row" style="justify-content:center;margin:10px 0 6px;gap:10px">
+        <label class="pill"><input type="radio" name="diff" value="easy" checked> EASY</label>
+        <label class="pill"><input type="radio" name="diff" value="normal"> NORMAL</label>
+        <label class="pill"><input type="radio" name="diff" value="hard"> HARD</label>
+      </div>
+
+      <div class="row" style="justify-content:center;margin:12px 0 6px">
+        <button id="btnStart">はじめる</button>
+        <button id="btnHow">あそびかた</button>
+      </div>
+      <p class="subtitle">キー: <span class="kbd">A</span><span class="kbd">S</span><span class="kbd">Space</span></p>
+
+      <div id="howSection" style="display:none;margin-top:20px;">
+        <p class="help-text">
+          音楽に合わせてノートを叩きます。判定ラインで <span class="kbd">A</span> / <span class="kbd">S</span> / <span class="kbd">Space</span>。
+          まずはEASYで練習してください。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Play -->
+<div id="scene-play" class="scene">
+  <div class="wrap" style="height:100%;justify-content:flex-start;padding:0">
+    <div id="hud">
+      <div class="pill score-pill">SCORE: <b id="score">0</b></div>
+      <div class="combo-container"><b id="combo" class="combo"></b></div>
+    </div>
+
+    <div style="position:relative;width:100%;height:100%;">
+      <canvas id="gameCanvas"></canvas>
+      <div id="judgeText" class="judge-text"></div>
+
+      <div id="lanes">
+        <div class="lane" data-lane="0"><div class="kbd">A</div><div class="hitline"></div><div class="spark"></div></div>
+        <div class="lane" data-lane="1"><div class="kbd">S</div><div class="hitline"></div><div class="spark"></div></div>
+        <div class="lane" data-lane="2"><div class="kbd">Space</div><div class="hitline"></div><div class="spark"></div></div>
+      </div>
+    </div>
+
+    <div id="controls" class="row">
+      <button class="ctl" data-lane="0">パンチ</button>
+      <button class="ctl" data-lane="1">キック</button>
+      <button class="ctl" data-lane="2">ジャンプ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Result -->
+<div id="scene-result" class="scene">
+  <div class="wrap center">
+    <div class="card">
+      <div class="big" id="resultTitle">ステージ クリア</div>
+      <div class="result-grid">
+        <div class="result-item">PERFECT<br><b id="rPerfect">0</b></div>
+        <div class="result-item">GREAT<br><b id="rGreat">0</b></div>
+        <div class="result-item">GOOD<br><b id="rGood">0</b></div>
+        <div class="result-item">MISS<br><b id="rMiss">0</b></div>
+      </div>
+      <div class="rank" id="rRank">S</div>
+      <div class="row" style="justify-content:center;margin-top:8px">
+        <button id="toEnding">エンディングへ</button>
+        <button id="retry">リトライ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ending -->
+<div id="scene-ending" class="scene">
+  <div class="wrap center">
+    <div class="card ending">
+      <div class="big">ありがとう</div>
+      <p>プレイに感謝します。健康第一で、少しずつ上達してください。</p>
+      <div class="row" style="justify-content:center;margin-top:20px;">
+        <button id="restart">はじめに戻る</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ ローカル音源を指定 -->
+<audio id="gameMusic" src="music.mp3" preload="auto"></audio>
+
+<script>
+(() => {
+  // ------- helpers
+  const qs = (s, root=document) => root.querySelector(s);
+  const qsa = (s, root=document) => [...root.querySelectorAll(s)];
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+  // ------- state
+  const state = {
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    judge: '',
+    results: { perfect: 0, great: 0, good: 0, miss: 0 },
+    notes: [],
+    isGameRunning: false,
+    pixelsPerSec: 520,   // ノートの落下速度（px/s）
+    lastNoteTime: 0
+  };
+
+  const KEY_MAPPINGS = { 'a':0, 's':1, ' ':2 };
+  const JUDGE_RANGES = { perfect:0.15, great:0.25, good:0.40 }; // やさしめ
+  const SCORE_VALUES = { perfect:100, great:50, good:20 };
+
+  // ------- elements
+  const btnStart = qs('#btnStart');
+  const btnHow = qs('#btnHow');
+  const howSection = qs('#howSection');
+  const music = qs('#gameMusic');
+  const canvas = qs('#gameCanvas');
+  const ctx = canvas.getContext('2d');
+  let dpr = Math.max(1, window.devicePixelRatio || 1);
+  const hudScore = qs('#score');
+  const hudCombo = qs('#combo');
+  const judgeText = qs('#judgeText');
+
+  // ------- animation
+  let lastFrameTime = 0;
+  let animationFrameId;
+
+  // ------- difficulty
+  const DIFFICULTIES = {
+    easy:   { speed: 0.9, pps: 420 },
+    normal: { speed: 1.0, pps: 520 },
+    hard:   { speed: 1.2, pps: 600 }
+  };
+
+  // ------- start game
+  async function startGame() {
+    const difficulty = qs('input[name="diff"]:checked').value;
+    const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.easy;
+
+    // reset
+    state.score = 0; state.combo = 0; state.maxCombo = 0; state.judge = '';
+    state.results = { perfect:0, great:0, good:0, miss:0 };
+    state.notes = []; state.isGameRunning = true;
+    state.pixelsPerSec = diff.pps;
+
+    updateHUD();
+    judgeText.textContent = '';
+    showScene('play');
+
+    // 音源
+    try { await music.play(); } catch(e) { /* ユーザー操作後なので多くは成功 */ }
+    music.currentTime = 0;
+
+    // 譜面読み込み（JSON優先 → 失敗時ランダム）
+    await loadNotesFromJSON().catch(()=>{});
+    if (state.notes.length === 0) generateNotesFallback();
+
+    // last note
+    state.lastNoteTime = Math.max(0, ...state.notes.map(n=>n.time||0));
+
+    // loop
+    lastFrameTime = performance.now();
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  // ------- notes: JSON load
+  async function loadNotesFromJSON(){
+    const res = await fetch('notes.json', {cache:'no-store'});
+    if(!res.ok) throw new Error('notes.json load failed');
+    const data = await res.json();
+    state.notes = data
+      .filter(n => typeof n.time==='number' && (n.lane===0||n.lane===1||n.lane===2))
+      .map(n => ({ time: n.time, lane: n.lane, alive: true, y: -100 }));
+  }
+
+  // ------- notes: fallback (ランダム)
+  function generateNotesFallback(){
+    const duration = 42; // 安全な既定値
+    let t = 2.0;
+    while(t < duration){
+      if(Math.random() < 0.5){
+        const lane = Math.floor(Math.random()*3);
+        state.notes.push({ time:t, lane, alive:true, y:-100 });
+      }
+      t += 0.5;
+    }
+  }
+
+  // ------- loop
+  function gameLoop(now){
+    const dt = (now - lastFrameTime)/1000; lastFrameTime = now;
+    if(state.isGameRunning){
+      updateNotes();
+      updateStickman(dt);
+      draw();
+      if(shouldEnd()) endGame();
+    }
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  // ------- end condition
+  function shouldEnd(){
+    const allDone = state.notes.every(n => !n.alive);
+    return music.ended || (allDone && music.currentTime > state.lastNoteTime + 1.5);
+  }
+
+  // ------- notes update (music.currentTimeベース)
+  function updateNotes(){
+    const laneHitY = canvas.height / dpr - 100; // 判定ラインのY
+    const t = music.currentTime;
+
+    state.notes.forEach(note=>{
+      if(!note.alive) return;
+      const dy = (t - note.time) * state.pixelsPerSec;
+      note.y = laneHitY - dy;
+
+      // 判定ラインを大きく上に通過したらミス
+      if(note.y < -160){
+        note.alive = false;
+        state.results.miss++; state.combo = 0; state.judge = 'MISS';
+        updateHUD();
+      }
+    });
+  }
+
+  // ------- hit
+  function hitNote(lane){
+    if(!state.isGameRunning) return;
+
+    let best=null, min=Infinity;
+    const t = music.currentTime;
+
+    state.notes.forEach(n=>{
+      if(n.alive && n.lane===lane){
+        const diff=Math.abs(t - n.time);
+        if(diff<min){ min=diff; best=n; }
+      }
+    });
+
+    if(best && min<=JUDGE_RANGES.good){
+      let judge, sc;
+      if(min<=JUDGE_RANGES.perfect){ judge='PERFECT'; sc=SCORE_VALUES.perfect; state.results.perfect++; }
+      else if(min<=JUDGE_RANGES.great){ judge='GREAT'; sc=SCORE_VALUES.great; state.results.great++; }
+      else { judge='GOOD'; sc=SCORE_VALUES.good; state.results.good++; }
+
+      state.score += sc * (1 + state.combo * 0.05);
+      state.combo++; state.maxCombo = Math.max(state.maxCombo, state.combo);
+      state.judge = judge; best.alive=false; playSpark(lane);
+      updateHUD();
+      doStickmanAction(lane);
+    } else {
+      state.combo=0; state.results.miss++; state.judge='MISS'; updateHUD();
+    }
+  }
+
+  // ------- stickman
+  const stick = { width:30, height:60, color:'#06b6d4', vy:0, onGround:true, actionTime:0, currentAction:'idle' };
+  function doStickmanAction(lane){
+    if(lane===0) stick.currentAction='punch';
+    else if(lane===1) stick.currentAction='kick';
+    else if(lane===2 && stick.onGround){ stick.vy=200; stick.onGround=false; stick.currentAction='jump'; }
+    stick.actionTime = performance.now();
+  }
+  function updateStickman(dt){
+    if(!stick.onGround){ stick.vy -= 400*dt; }
+    const sy = groundY() - stick.height - stick.vy;
+    if(!stick.onGround && sy >= groundY() - stick.height){ stick.vy=0; stick.onGround=true; }
+    if(performance.now() - stick.actionTime > 200 && stick.onGround){ stick.currentAction='idle'; }
+  }
+  function drawStickman(){
+    ctx.fillStyle = stick.color; ctx.strokeStyle = stick.color; ctx.lineWidth = 4; ctx.lineCap='round';
+    const sx = canvas.width/dpr * 0.5;
+    const sy = groundY() - stick.height - stick.vy;
+
+    const actionDuration = performance.now() - stick.actionTime;
+    const p = clamp(actionDuration/200, 0, 1);
+
+    // head
+    ctx.beginPath(); ctx.arc(sx, sy, 15, 0, Math.PI*2); ctx.fill();
+    // body
+    ctx.beginPath(); ctx.moveTo(sx, sy+15); ctx.lineTo(sx, sy+40); ctx.stroke();
+    // legs
+    ctx.beginPath();
+    let k = 15*p;
+    if(stick.currentAction==='kick'){
+      ctx.moveTo(sx, sy+40); ctx.lineTo(sx-15, sy+55);
+      ctx.moveTo(sx, sy+40); ctx.lineTo(sx+15+k, sy+55 + k*0.5);
+    }else if(stick.currentAction==='jump'){
+      ctx.moveTo(sx, sy+40); ctx.lineTo(sx-20, sy+60);
+      ctx.moveTo(sx, sy+40); ctx.lineTo(sx+20, sy+60);
+    }else{
+      ctx.moveTo(sx, sy+40); ctx.lineTo(sx-15, sy+55);
+      ctx.moveTo(sx, sy+40); ctx.lineTo(sx+15, sy+55);
+    }
+    ctx.stroke();
+    // arms
+    ctx.beginPath();
+    let pu = 20*p;
+    if(stick.currentAction==='punch'){
+      ctx.moveTo(sx, sy+25); ctx.lineTo(sx-20, sy+40);
+      ctx.moveTo(sx, sy+25); ctx.lineTo(sx+20+pu, sy+40 - pu*0.5);
+    }else if(stick.currentAction==='jump'){
+      ctx.moveTo(sx, sy+25); ctx.lineTo(sx-25, sy+15);
+      ctx.moveTo(sx, sy+25); ctx.lineTo(sx+25, sy+15);
+    }else{
+      ctx.moveTo(sx, sy+25); ctx.lineTo(sx-20, sy+40);
+      ctx.moveTo(sx, sy+25); ctx.lineTo(sx+20, sy+40);
+    }
+    ctx.stroke();
+  }
+  function groundY(){ return (canvas.height / dpr) - 60; }
+
+  // ------- draw
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    const laneHitY = canvas.height/dpr - 100;
+    const canvasRect = canvas.getBoundingClientRect();
+    const laneEls = qsa('.lane');
+
+    state.notes.forEach(n=>{
+      if(!n.alive) return;
+      const laneEl = laneEls[n.lane];
+      const r = laneEl.getBoundingClientRect();
+      const x = (r.left + r.width/2) - canvasRect.left; // CSS px座標
+      const y = laneHitY - (n.time - music.currentTime) * state.pixelsPerSec;
+      ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI*2); ctx.fill();
+    });
+
+    drawStickman();
+  }
+
+  // ------- HUD / UI
+  function updateHUD(){
+    hudScore.textContent = Math.floor(state.score);
+    hudCombo.textContent = state.combo>0 ? `${state.combo} COMBO` : '';
+    hudCombo.classList.toggle('hit', state.combo>0);
+
+    if(state.judge){
+      const el = judgeText;
+      el.textContent = state.judge;
+      el.className = `judge-text judge-${state.judge.toLowerCase()}`;
+      void el.offsetWidth; el.style.animation='none'; el.style.opacity='0';
+      setTimeout(()=>{ el.style.animation=''; el.style.animation='judgePop .6s cubic-bezier(.25,.46,.45,.94) forwards'; }, 10);
+      state.judge = '';
+    }
+  }
+
+  function playSpark(lane){
+    const spark = qs(`.lane[data-lane="${lane}"] .spark`);
+    spark.classList.add('show'); setTimeout(()=>spark.classList.remove('show'), 300);
+  }
+
+  function fitCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    ctx.setTransform(1,0,0,1,0,0);
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function showScene(id){ qsa('.scene').forEach(s=>s.classList.remove('active')); qs('#scene-'+id).classList.add('active'); }
+
+  // ------- events
+  const resizeObserver = new ResizeObserver(()=>{ dpr = Math.max(1, window.devicePixelRatio || 1); fitCanvas(); });
+  resizeObserver.observe(canvas); window.addEventListener('resize', fitCanvas); fitCanvas();
+
+  btnStart.addEventListener('click', startGame);
+  btnHow.addEventListener('click', ()=>{ howSection.style.display = howSection.style.display==='none' ? 'block' : 'none'; });
+  qs('#retry').addEventListener('click', ()=>{ showScene('start'); });
+  qs('#restart').addEventListener('click', ()=>{ showScene('start'); });
+  qs('#toEnding').addEventListener('click', ()=>{ showScene('ending'); });
+
+  qsa('.ctl').forEach(btn=>{
+    btn.addEventListener('touchstart', (e)=>{ e.preventDefault(); hitNote(parseInt(btn.dataset.lane)); });
+    btn.addEventListener('click', ()=>{ hitNote(parseInt(btn.dataset.lane)); });
+  });
+  window.addEventListener('keydown', (e)=>{
+    if(!qs('#scene-play').classList.contains('active')) return;
+    const lane = KEY_MAPPINGS[e.key.toLowerCase()];
+    if(lane!==undefined) hitNote(lane);
+  });
+
+  // 音源エラー時はサイレントで継続可能
+  music.addEventListener('error', ()=>{ console.warn('BGMを読み込めませんでした。music.mp3 を確認してください。'); });
+})();
+</script>
+</body>
+</html>
