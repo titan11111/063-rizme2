@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover, maximum-scale=1.0" />
+<title>リズムバトル × アクション棒人間</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Start -->
+<div id="scene-start" class="scene active">
+  <div class="wrap">
+    <div class="card center">
+      <div class="pill">Rhythm × Action</div>
+      <h1 class="title">リズムバトル：棒人間でパンチ・キック・ジャンプ</h1>
+      <p class="subtitle">JSON譜面・ローカルBGM対応版</p>
+
+      <div class="row" style="justify-content:center;margin:10px 0 6px;gap:10px">
+        <label class="pill"><input type="radio" name="diff" value="easy" checked> EASY</label>
+        <label class="pill"><input type="radio" name="diff" value="normal"> NORMAL</label>
+        <label class="pill"><input type="radio" name="diff" value="hard"> HARD</label>
+      </div>
+
+      <div class="row" style="justify-content:center;margin:12px 0 6px">
+        <button id="btnStart">はじめる</button>
+        <button id="btnHow">あそびかた</button>
+      </div>
+      <p class="subtitle">キー: <span class="kbd">A</span><span class="kbd">S</span><span class="kbd">Space</span></p>
+
+      <div id="howSection" style="display:none;margin-top:20px;">
+        <p class="help-text">
+          音楽に合わせてノートを叩きます。判定ラインで <span class="kbd">A</span> / <span class="kbd">S</span> / <span class="kbd">Space</span>。
+          まずはEASYで練習してください。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Play -->
+<div id="scene-play" class="scene">
+  <div class="wrap" style="height:100%;justify-content:flex-start;padding:0">
+    <div id="hud">
+      <div class="pill score-pill">SCORE: <b id="score">0</b></div>
+      <div class="combo-container"><b id="combo" class="combo"></b></div>
+    </div>
+
+    <div style="position:relative;width:100%;height:100%;">
+      <canvas id="gameCanvas"></canvas>
+      <div id="judgeText" class="judge-text"></div>
+
+      <div id="lanes">
+        <div class="lane" data-lane="0"><div class="kbd">A</div><div class="hitline"></div><div class="spark"></div></div>
+        <div class="lane" data-lane="1"><div class="kbd">S</div><div class="hitline"></div><div class="spark"></div></div>
+        <div class="lane" data-lane="2"><div class="kbd">Space</div><div class="hitline"></div><div class="spark"></div></div>
+      </div>
+    </div>
+
+    <div id="controls" class="row">
+      <button class="ctl" data-lane="0">パンチ</button>
+      <button class="ctl" data-lane="1">キック</button>
+      <button class="ctl" data-lane="2">ジャンプ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Result -->
+<div id="scene-result" class="scene">
+  <div class="wrap center">
+    <div class="card">
+      <div class="big" id="resultTitle">ステージ クリア</div>
+      <div class="result-grid">
+        <div class="result-item">PERFECT<br><b id="rPerfect">0</b></div>
+        <div class="result-item">GREAT<br><b id="rGreat">0</b></div>
+        <div class="result-item">GOOD<br><b id="rGood">0</b></div>
+        <div class="result-item">MISS<br><b id="rMiss">0</b></div>
+      </div>
+      <div class="rank" id="rRank">S</div>
+      <div class="row" style="justify-content:center;margin-top:8px">
+        <button id="toEnding">エンディングへ</button>
+        <button id="retry">リトライ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ending -->
+<div id="scene-ending" class="scene">
+  <div class="wrap center">
+    <div class="card ending">
+      <div class="big">ありがとう</div>
+      <p>プレイに感謝します。健康第一で、少しずつ上達してください。</p>
+      <div class="row" style="justify-content:center;margin-top:20px;">
+        <button id="restart">はじめに戻る</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ ローカル音源を指定（オプショナル） -->
+<audio id="gameMusic" src="./music.mp3" preload="auto"></audio>
+
+<script src="script.js"></script>
+</body>
+</html>
